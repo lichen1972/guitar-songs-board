@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitar Songs Board</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Avenir Next','Segoe UI',system-ui,sans-serif;
+    background: #e9ddc0; height: 100vh; display: flex; overflow: hidden;
+  }
+  aside {
+    width: 189px; flex-shrink: 0; padding: 11px 9px 14px;
+    display: flex; flex-direction: column; gap: 11px;
+    border-right: 3px solid #1f2d1a; background: #2f3e28;
+    height: 100vh; overflow-y: auto;
+  }
+  .brand-title { font-size: 14.5px; font-weight: 800; color: #f5efdc; }
+  .brand-sub { font-size: 10px; color: #c9d3b8; }
+  .box {
+    background: #fdf9ee; border: 2px solid #1f2d1a; border-radius: 9px;
+    padding: 8px 8px 9px; box-shadow: 0 3px 8px rgba(0,0,0,.25);
+  }
+  .box-title {
+    font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+    color: #3a7d44; font-weight: 800; margin-bottom: 5px;
+  }
+  .chip {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: 4px 7px; margin-bottom: 4px; border-radius: 6px;
+    border: 1.5px solid #ddd6c8; background: #faf8f2; color: #9a927f;
+    font-weight: 500; font-size: 10.5px; cursor: pointer; transition: all .15s;
+    font-family: inherit; text-align: left;
+  }
+  .chip.on { border-color: #1f2d1a; background: #3a7d44; color: #ffffff; font-weight: 700; }
+  .chip .cnt { font-size: 9px; opacity: .75; }
+  .chip.pair.on.p-CAm { border-color:#0f6b38; background:#17a054; color:#ffffff; }
+  .chip.pair.on.p-DBm { border-color:#9a6a00; background:#e09b00; color:#ffffff; }
+  .chip.pair.on.p-EmG { border-color:#134d80; background:#1e78c2; color:#ffffff; }
+  .chip.pair.on.p-FDm { border-color:#8c1f42; background:#d13563; color:#ffffff; }
+  #dayChips { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  #dayChips .chip { margin-bottom: 0; }
+  .mini-row { display: flex; gap: 5px; margin-top: 4px; }
+  .mini {
+    flex: 1; padding: 3px 0; font-size: 9px; font-weight: 700;
+    border: 1px solid #d8d2c4; border-radius: 6px; background: #fff;
+    color: #5c564a; cursor: pointer; font-family: inherit;
+  }
+  .hint { font-size: 8.5px; color: #7a7263; margin-top: 3px; line-height: 1.3; }
+  main { flex: 1; padding: 20px; height: 100vh; overflow-y: auto; overflow-x: auto; }
+  #board { display: flex; flex-direction: column; gap: 14px; }
+  #board.tb { max-width: 760px; }
+
+  /* Day band (both modes share the card shell) */
+  .day-card { background: #fffdf5; border: 2px solid #1f2d1a; border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+  .day-head { padding: 10px 14px; background: linear-gradient(90deg,#2f3e28,#3a7d44); color: #f7f2e0; }
+  .day-head.fun { background: linear-gradient(90deg,#4a2c14,#b3541e); }
+  .day-name { font-weight: 800; font-size: 15px; }
+  .day-sub { font-size: 11px; opacity: .85; }
+  .day-body { padding: 8px; }
+
+  /* Left-to-right: each spreadsheet line = one strip of songs flowing across */
+  .line { display: flex; align-items: stretch; gap: 0; border-bottom: 1px dashed #e0dacb; }
+  .line:last-child { border-bottom: none; }
+  .line-tag {
+    flex: 0 0 52px; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #9a927f; background: #f7f4ec;
+    border-right: 1px solid #e6e0d2; border-radius: 6px 0 0 6px; margin: 4px 0;
+  }
+  .line-songs { flex: 1; display: flex; flex-wrap: wrap; padding: 4px 0; }
+  .cell {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 10px; margin: 2px; border-radius: 6px;
+    background: #f7f4ec; border: 1px solid #e6e0d2;
+    font-size: 12px; color: #2b2822;
+  }
+  .cell.dim { opacity: .22; }
+
+  /* Top-to-bottom: vertical song list */
+  .song { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; }
+  .song:nth-child(odd) { background: #f7f4ec; }
+  .song .name { flex: 1; font-size: 12.5px; color: #2b2822; line-height: 1.35; }
+
+  .badge {
+    font-size: 11px; font-weight: 800; min-width: 30px; text-align: center;
+    padding: 2px 6px; border-radius: 5px; color: #6b6555; background: #eee9dc;
+  }
+  .badge.p-CAm { color:#fff; background:#17a054; }
+  .badge.p-DBm { color:#fff; background:#e09b00; }
+  .badge.p-EmG { color:#fff; background:#1e78c2; }
+  .badge.p-FDm { color:#fff; background:#d13563; }
+  .empty { font-size: 12px; color: #9a927f; padding: 8px; }
+  .no-days { color: #7a7263; font-size: 14px; padding: 40px; }
+
+  /* Blurred guitar watermark */
+  #watermark {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #watermark svg {
+    width: 78vmin; height: 78vmin; opacity: .13;
+    filter: blur(5px); transform: rotate(-18deg);
+  }
+  aside, main { position: relative; z-index: 1; }
+  @media (max-width: 700px) {
+    body { flex-direction: column; height: auto; overflow: visible; }
+    aside { width: 100%; height: auto; max-height: 40vh; }
+    main { height: auto; overflow: visible; }
+  }
+
+  /* Random-pick modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50; background: rgba(20,16,8,.6);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-card {
+    background: #fdf9ee; border: 3px solid #1f2d1a; border-radius: 16px;
+    padding: 26px 24px; max-width: 380px; width: 100%; text-align: center;
+    box-shadow: 0 12px 34px rgba(0,0,0,.4);
+  }
+  .modal-eyebrow {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: #3a7d44; font-weight: 800; margin-bottom: 12px;
+  }
+  .modal-badge-wrap { margin-bottom: 10px; }
+  .modal-badge-wrap .badge { font-size: 15px; padding: 5px 14px; }
+  .modal-song { font-size: 19px; font-weight: 800; color: #2b2822; line-height: 1.35; margin-bottom: 8px; }
+  .modal-meta { font-size: 12.5px; color: #7a7263; margin-bottom: 18px; }
+  .modal-buttons { display: flex; flex-direction: column; gap: 8px; }
+  .modal-btn {
+    padding: 11px 14px; border-radius: 9px; border: 2px solid #1f2d1a;
+    font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .modal-btn.primary { background: #3a7d44; color: #fff; }
+  .modal-btn.secondary { background: #fff; color: #2b2822; }
+  .modal-btn.ghost { background: transparent; border-color: #d8d2c4; color: #7a7263; }
+
+  /* Pinned pick banner above board */
+  .pick-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #fdf3d9; border: 2px solid #b3541e; border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 12px; font-size: 12.5px; color: #4a2c14; font-weight: 700;
+  }
+  .pick-banner button {
+    margin-left: auto; border: none; background: transparent; color: #b3541e;
+    font-weight: 800; cursor: pointer; font-size: 12px; font-family: inherit;
+  }
+  .cell.picked, .song.picked {
+    outline: 3px solid #b3541e; outline-offset: 1px;
+    animation: pulseGlow 1.4s ease-in-out 2;
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(179,84,30,0); }
+    50% { box-shadow: 0 0 14px rgba(179,84,30,.7); }
+  }
+</style>
+</head>
+<body>
+<div id="watermark" aria-hidden="true">
+<svg viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#5a3a1a" stroke="#3c2712" stroke-width="3">
+    <!-- headstock -->
+    <rect x="88" y="8" width="24" height="42" rx="6"/>
+    <!-- neck -->
+    <rect x="93" y="48" width="14" height="140"/>
+    <!-- body: two lobes -->
+    <circle cx="100" cy="235" r="52"/>
+    <circle cx="100" cy="310" r="68"/>
+    <path d="M52 250 Q64 272 52 292 M148 250 Q136 272 148 292" fill="none"/>
+  </g>
+  <!-- sound hole -->
+  <circle cx="100" cy="262" r="24" fill="#2a1a0c"/>
+  <circle cx="100" cy="262" r="24" fill="none" stroke="#c99a4e" stroke-width="4"/>
+  <!-- bridge -->
+  <rect x="78" y="330" width="44" height="10" rx="3" fill="#3c2712"/>
+  <!-- strings -->
+  <g stroke="#e8d9b0" stroke-width="1.4">
+    <line x1="95" y1="50" x2="88" y2="335"/>
+    <line x1="97.5" y1="50" x2="94" y2="335"/>
+    <line x1="100" y1="50" x2="100" y2="335"/>
+    <line x1="102.5" y1="50" x2="106" y2="335"/>
+    <line x1="105" y1="50" x2="112" y2="335"/>
+  </g>
+  <!-- tuning pegs -->
+  <g fill="#3c2712">
+    <circle cx="84" cy="16" r="4"/><circle cx="84" cy="28" r="4"/><circle cx="84" cy="40" r="4"/>
+    <circle cx="116" cy="16" r="4"/><circle cx="116" cy="28" r="4"/><circle cx="116" cy="40" r="4"/>
+  </g>
+  <!-- frets -->
+  <g stroke="#c99a4e" stroke-width="2">
+    <line x1="93" y1="66" x2="107" y2="66"/><line x1="93" y1="84" x2="107" y2="84"/>
+    <line x1="93" y1="102" x2="107" y2="102"/><line x1="93" y1="120" x2="107" y2="120"/>
+    <line x1="93" y1="138" x2="107" y2="138"/><line x1="93" y1="156" x2="107" y2="156"/>
+  </g>
+</svg>
+</div>
+<aside>
+  <div>
+    <div class="brand-title">Guitar Songs</div>
+    <div class="brand-sub" id="counter"></div>
+  </div>
+  <div class="box">
+    <div class="box-title">Group days</div>
+    <div id="dayChips"></div>
+    <div class="mini-row">
+      <button class="mini" onclick="setAllDays(true)">All</button>
+      <button class="mini" onclick="setAllDays(false)">None</button>
+    </div>
+  </div>
+  <div class="box">
+    <div class="box-title">Days layout</div>
+    <button class="chip" id="btn-tb" onclick="setLayout('tb')"><span>Go Vertical</span></button>
+    <button class="chip" id="btn-lr" onclick="setLayout('lr')"><span>Go Horizontal</span></button>
+  </div>
+  <div class="box">
+    <div class="box-title">Randomizer</div>
+    <button class="chip" onclick="openRandomModal()"><span>🎲 Pick Random Song</span></button>
+  </div>
+  <div class="box">
+    <div class="box-title">Chord pairs</div>
+    <div id="pairChips"></div>
+    <div class="hint">None selected = show all chords. D &ndash; Bm also includes A.</div>
+  </div>
+</aside>
+<main><div id="pickBanner"></div><div id="board"></div></main>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-eyebrow">🎲 Random Pick</div>
+    <div class="modal-badge-wrap" id="modalBadge"></div>
+    <div class="modal-song" id="modalSong"></div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn primary" onclick="stayWithSong()">✅ Stay with this song</button>
+      <button class="modal-btn secondary" onclick="nextRandom()">🔀 Next song</button>
+      <button class="modal-btn ghost" onclick="skipToNormal()">Back to normal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Original spreadsheet: 17 lines x 8 columns (Mon..Sun columns + Anytimes column)
+// Each GRID entry: [line day label, [8 cells of [song, chord] or null]]
+const GRID = [["Mon", [["NGƯỜI TÌNH MÙA ĐÔNG", "F"], ["LỜI NGƯỜI RA ĐI (TÔI XA HÀ NỘI….)", "F"], ["BẾN CẢNG QUÊ HƯƠNG TÔI", "Em"], ["RIÊNG MỘT GÓC TRỜI", "Dm"], ["HÃY YÊU NHƯ CHƯA YÊU LẦN NÀO", "G"], ["NOW AND FOREVER", "G"], ["TÔI RU EM NGỦ", "C"], ["CÁT BỤI", "Am"]]], ["Tue", [["BẾN THƯỢNG HẢI", "Dm"], ["HÀ NỘI NIỀM TIN VÀ HY VỌNG", "C"], ["GỬI EM Ở CUỐI SÔNG HỒNG", "Em"], ["CON ĐƯỜNG MÀU XANH", "C"], ["VỀ ĐÂY NGHE EM", "C"], ["WONDEFUL TONIGHT", "G"], ["GIỌT SƯƠNG TRÊN MÍ MẮT", "Am"], ["TRỜI CÒN LÀM MƯA, MÂY TRÔI…", "Am"]]], ["Wed", [["CHIÊU NAY TỪNG CƠN GIÓ ĐƯA", "Am"], ["HÀ NỘI MÙA VẮNG NHỮNG CƠN MƯA", "Am"], ["BẠN ƠI HÃY ĐẾN QH….", "C"], ["MƯA HỒNG", "D"], ["NGÀY EM ĐẾN", "D"], ["THE SOUND OF SILENCE", "Em"], ["HOA TÍM NGOÀI SÂN", "C"], ["ĐƯỜNG XƯA", "Am"]]], ["Thu", [["EM YÊU ƠI TÌNH NÀY DÂNG HẾT", "Dm"], ["MÙA THU HÀ NỘI - EM NGHE CHĂNG …", "F"], ["TRƯỜNG SƠN ĐÔNG / TÂY", "Dm"], ["BÂY GIỜ THÁNG MẤY RỒI HỠI EM", "C"], ["LỜI YÊU THƯƠNG", "F"], ["LA PALOMA", "C"], ["GIỌT NẮNG BÊN THỀM", "C"], ["NẮNG ẤM QUÊ HƯƠNG", "Em"]]], ["Fri", [["ÁNH TRĂNG - LÒNG TÔI", "F"], ["HÀ NỘI MÙA THU (CÂY CƠM NGUỘI ...)", "F"], ["CÔ GÁI MỞ ĐƯỜNG", "Em"], ["VÀ CON TIM ĐÃ VUI TRỞ LẠI", "C"], ["ĐƯỜNG XA ƯỚT MƯA", "F"], ["YESTERDAY", "F"], ["TÀ ÁO EM", "C"], ["XUÂN NÀY CON KHÔNG VỀ", "F"]]], ["Sat", [["CHUYỆN TÌNH TA TAN VỠ ÔI TỪ ĐÂY", "C"], ["THÁNG TÁM MÙA THU - LÁ RƠI VÀNG …", "G"], ["NỔI LỬA LÊN EM", "C"], ["NẮNG THỦY TINH", "C"], ["YÊU EM DÀI LÂU", "A"], ["LET IT BE", "C"], ["MƯA NGÂU", "C"], ["VỀ QUÊ (THƯƠNG EM…)", "Em"]]], ["Sun", [["NGƯỜI TỪ TRIỀU CHÂU", "C"], ["HÀ NỘI ĐÊM TRỞ GIÓ", "C"], ["NẮNG ÂM QUÊ HƯƠNG", "Em"], ["CÂY ĐÀN BỎ QUÊN", "Dm"], ["EM BÊN MÌNH ANH ...", "C"], ["MY WAY", "C"], ["LỐI CŨ TA VỀ", "G"], ["CẮT NỬA VẦNG TRĂNG", "Am"]]], ["Mon", [["NHỚ VỀ EM (NGỒI NHÌN MÂY TRÔI..)", "Dm"], ["EM ƠI HÀ NỘI PHỐ", "Dm"], ["MÙA XUÂN QUÊ HƯƠNG", "Em"], ["TRẢ LẠI EM YÊU KHUNG TRỜI…", "G"], ["TỪNG TRANG NHẬT KÝ MỞ RA (ĐB)", "F"], ["TOP OF THE WORLD", "G"], ["EM ĐI GIỮA BIỂN VẢNG", "G"], ["BÊN BỜ HIỀN LƯƠNG", "C"]]], ["Tue", [["NGƯỜI RA ĐI, ĐỂ SẦU ÚA LÊN TRĂNG..", "Am"], ["PHỐ BIỂN (THANH TÙNG)", "C"], ["HUYỀN THOẠI MẸ (ĐÊM TRONG..)", "Am"], ["YÊU EM YÊU EM NGHE ANH….", "F"], ["CƠN MƯA TÌNH YÊU", "C"], ["HELLO", "Am"], ["AI CÓ VỀ BÊN BẾN SÔNG TƯƠNG", "C"], ["CHIM SÁO NGÀY XƯA", "F"]]], ["Wed", [["BUÔC VÀO CƠN GIÓ", "Am"], ["TRƯA VẮNG (MỸ LINH)", "C"], ["NGƯỜI ƠI NGƯỜI Ở ĐỪNG VỀ", "G"], ["QUA BẾN NƯỚC XƯA…", "C"], ["MÙA THU CHO EM (EM CÓ NGHE..)", "G"], ["WONDEFUL WORLD", "F"], ["TÔI ĐƯA EM SANG SÔNG", "Dm"], ["DƯ ÂM", "G"]]], ["Thu", [null, ["BIỂN CẠN", "Dm"], ["BÈO DẠT MÂY TRÔI", "G"], ["HÃY LẠI GẦN VỚI EM...", "C"], ["NGƯỜI VỀ ĐÂY VỚI EM (MỸ TÂM)", "C"], ["OP LA DI - OP LA DA", "G"], ["KHOẢNH KHẮC (CHỈ CÒN 1 CH. LÁ)", "G"], ["GÓT HỒNG", "G"]]], ["Fri", [["HAPPY NEW YEAR", "C"], ["CHIỀU NAY KHÔNG CÓ EM (CHIỀU NAY)", "F"], ["RU CON (RU HỜI, HỜI RU..)", "C"], ["MỘT ĐÊM SAY", "G"], ["ƯỚC GÌ", "G"], ["SWAY", "Am"], ["THÔI EM HÃY VỀ", "C"], ["RỒI MAI TÔI ĐƯA EM", "F"]]], ["Sat", [["JINGLE BELL", "C"], ["NHÌN NHỮNG MÙA THU ĐI (TCS)", "C"], ["MƯA TRÊN PHỐ HUẾ", "C"], ["BUỒN ƠI TA XIN CHÀO MI", "F"], ["TRÁI TIM KHÔNG NGỦ YÊN", "F"], ["NOTHING GONNA CHANGE MY LOVE", "C"], ["ĐỜI SINH VIÊN CÓ CÂY ĐÀN GUITAR", "Am"], ["DƯỜNG NHƯ AI ĐI NGANG CỬA", "Am"]]], ["Sun", [["WE WISH YOU A MERRY XMAS", "C"], ["BIỂN NHỚ (TRỊNH CÔNG SƠN)", "Am"], ["CHIỀU NAY LỐI VỀ ĐẤT MẸ…", "C"], ["MẮT BIẾC", "D"], ["10 NĂM TÌNH CŨ", "Am"], ["FLY ME TO THE MOON", "Dm"], ["HƯƠNG NGỌC LAN", "C"], ["KHÔNG CÒN MÙA THU…", "C"]]], ["Mon", [["FELIZ NAVIDAZ", "C"], ["NHỚ VỀ HÀ NỘI", "A"], ["TÌNH CA TÂY BẮC", "G"], ["BÊN EM LÀ BIỂN RỘNG", "Am"], ["PHỐ XA", "Am"], ["VIEN M'EMBRASER (LAI GAN HON A)", "Am"], ["GIẤC MƠ CÓ THẬT", "C"], ["NGÀY VỀ (TUNG CÁNH CHIM…)", "G"]]], ["Tue", [["SILENT NIGHT", "C"], ["LÀNG LÚA LÀNG HOA MÙA XUÂN", "Am"], ["LONG PHỤNG XUM VẦY", "F"], ["THÌ THẦM MÙA XUÂN (N.CHÂU)", "Em"], ["XUÂN VÀ TUỔI TRẺ", "C"], ["IT'S NOW OR NEVER", "F"], ["NĂM QUA ĐÃ LÀM GÌ", "C"], ["ĐÓN XUÂN (XUÂN ĐÃ ĐẾN RỒI)", "C"]]], ["Wed", [null, null, null, ["EM VỀ TINH KHÔI (B. KIỀU)", "G"], ["VÀ TÔI CŨNG YÊU EM", "C"], null, ["LÀNG LÚA LÀNG HOA", "Am"], ["ĐOẢN XUÂN CA (NGHE XUÂN SANG)", "C"]]]];
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun","Fun"];
+const DAY_CAT = {
+  Mon:"Chinese / Festive", Tue:"Hanoi / Biển / TCS", Wed:"War Songs / Folks",
+  Thu:"Romantic", Fri:"Romantic2", Sat:"English", Sun:"Thanh Tùng / Misc", Fun:"Misc"
+};
+const PAIRS = [
+  { id:"CAm", label:"C – Am", chords:["C","Am"] },
+  { id:"DBm", label:"D – Bm", chords:["D","Bm","A"] },
+  { id:"EmG", label:"Em – G", chords:["Em","G"] },
+  { id:"FDm", label:"F – Dm", chords:["F","Dm"] },
+];
+const pairOf = c => PAIRS.find(p => p.chords.includes(c));
+const TOTAL = GRID.reduce((n,r) => n + r[1].filter(Boolean).length, 0);
+
+let activeDays = new Set(DAYS);
+let activePairs = new Set();
+let layout = "lr";
+let pinnedPick = null; // song the user chose to "stay" with
+
+// Flatten every song with its real calendar day (column index maps to DAYS)
+const ALL_SONGS = [];
+GRID.forEach((r, rowIdx) => {
+  r[1].forEach((c, colIdx) => {
+    if (c) ALL_SONGS.push({ name: c[0], chord: c[1], day: DAYS[colIdx], rowIdx, colIdx });
+  });
+});
+const songKey = s => s.rowIdx + "-" + s.colIdx;
+let currentPick = null;
+
+function pickRandomSong(excludeKey) {
+  let pool = ALL_SONGS;
+  if (excludeKey && pool.length > 1) pool = pool.filter(s => songKey(s) !== excludeKey);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function renderModal() {
+  const s = currentPick;
+  document.getElementById("modalBadge").innerHTML = badge(s.chord);
+  document.getElementById("modalSong").textContent = s.name;
+  document.getElementById("modalMeta").textContent = "Day: " + s.day;
+}
+function openRandomModal() {
+  currentPick = pickRandomSong();
+  renderModal();
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+function nextRandom() {
+  currentPick = pickRandomSong(songKey(currentPick));
+  renderModal();
+}
+function closeModal() { document.getElementById("modalOverlay").classList.add("hidden"); }
+function goToToday() {
+  const map = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  activeDays = new Set([map[new Date().getDay()]]);
+  layout = "lr";
+  render();
+}
+function stayWithSong() { pinnedPick = currentPick; closeModal(); goToToday(); }
+function skipToNormal() { pinnedPick = null; closeModal(); goToToday(); }
+function clearPin() { pinnedPick = null; render(); }
+
+function setAllDays(on) { activeDays = on ? new Set(DAYS) : new Set(); render(); }
+function toggleDay(d) { activeDays.has(d) ? activeDays.delete(d) : activeDays.add(d); render(); }
+function togglePair(id) { activePairs.has(id) ? activePairs.delete(id) : activePairs.add(id); render(); }
+function setLayout(l) { layout = l; render(); }
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function chordOK(c) {
+  if (activePairs.size === 0) return true;
+  const p = pairOf(c);
+  return p ? activePairs.has(p.id) : false;
+}
+function badge(c) {
+  const p = pairOf(c);
+  return `<span class="badge ${p ? "p-" + p.id : ""}">${c}</span>`;
+}
+// Songs for a day group:
+//  - lr: all cells of the lines labeled with that day (left-to-right). Anytimes = its column.
+//  - tb: the day's column, top-to-bottom.
+function daySongCount(d) {
+  if (d === "Fun") return GRID.filter(r => r[1][7]).length;
+  if (layout === "lr") {
+    return GRID.filter(r => r[0] === d)
+      .reduce((n,r) => n + r[1].filter(Boolean).length, 0);
+  }
+  const i = DAYS.indexOf(d);
+  return GRID.filter(r => r[1][i]).length;
+}
+
+function render() {
+  document.getElementById("dayChips").innerHTML = DAYS.map(d => {
+    const label = d === "Fun" ? "Fun ♪" : d;
+    return `<button class="chip ${activeDays.has(d) ? "on" : ""}" onclick="toggleDay('${d}')">
+      <span>${label}</span><span class="cnt">${daySongCount(d)}</span></button>`;
+  }).join("");
+
+  document.getElementById("pairChips").innerHTML = PAIRS.map(p => {
+    let n = 0;
+    GRID.forEach(r => r[1].forEach(c => { if (c && p.chords.includes(c[1])) n++; }));
+    return `<button class="chip pair p-${p.id} ${activePairs.has(p.id) ? "on" : ""}" onclick="togglePair('${p.id}')">
+      <span>${p.label}</span><span class="cnt">${n}</span></button>`;
+  }).join("");
+
+  document.getElementById("btn-lr").className = "chip" + (layout === "lr" ? " on" : "");
+  document.getElementById("btn-tb").className = "chip" + (layout === "tb" ? " on" : "");
+
+  const bannerEl = document.getElementById("pickBanner");
+  bannerEl.innerHTML = pinnedPick
+    ? `<div class="pick-banner">🎵 Your pick: <strong>${esc(pinnedPick.name)}</strong> (${pinnedPick.chord}) &middot; ${pinnedPick.day}
+        <button onclick="clearPin()">clear</button></div>`
+    : "";
+
+  const board = document.getElementById("board");
+  board.className = layout;
+  const visible = DAYS.filter(d => activeDays.has(d));
+  if (visible.length === 0) {
+    board.innerHTML = `<div class="no-days">No days selected. Pick days in the sidebar to see songs.</div>`;
+    document.getElementById("counter").textContent = "0 of " + TOTAL + " songs shown";
+    return;
+  }
+
+  let shown = 0;
+  board.innerHTML = visible.map(d => {
+    let bodyHTML, sub, count = 0;
+
+    if (layout === "lr" && d !== "Fun") {
+      // All songs in the lines labeled with this day, flowing left-to-right
+      const lines = GRID.map((r, idx) => ({ r, idx })).filter(x => x.r[0] === d);
+      bodyHTML = lines.map(({ r, idx }) => {
+        const cells = r[1].map((c, ci) => c ? { c, ci } : null).filter(Boolean).map(({ c, ci }) => {
+          const ok = chordOK(c[1]);
+          if (ok) count++;
+          return `<span class="cell${ok ? "" : " dim"}" data-key="${idx}-${ci}"><span class="name">${esc(c[0])}</span>${badge(c[1])}</span>`;
+        }).join("");
+        return `<div class="line">
+          <div class="line-tag">line ${idx + 4}</div>
+          <div class="line-songs">${cells || `<div class="empty">—</div>`}</div>
+        </div>`;
+      }).join("");
+      sub = lines.length + " lines · left to right";
+    } else if (layout === "lr" && d === "Fun") {
+      // Anytimes column, flowing left-to-right
+      const cells = GRID.map((r, ri) => ({ c: r[1][7], ri })).filter(x => x.c).map(({ c, ri }) => {
+        const ok = chordOK(c[1]);
+        if (ok) count++;
+        return `<span class="cell${ok ? "" : " dim"}" data-key="${ri}-7"><span class="name">${esc(c[0])}</span>${badge(c[1])}</span>`;
+      }).join("");
+      bodyHTML = `<div class="line"><div class="line-songs">${cells}</div></div>`;
+      sub = "Misc column · left to right";
+    } else {
+      // Top-to-bottom: the day's column as a vertical list
+      const i = DAYS.indexOf(d);
+      const rows = GRID.map((r, ri) => ({ c: r[1][i], ri })).filter(x => x.c && chordOK(x.c[1]));
+      count = rows.length;
+      bodyHTML = rows.length === 0
+        ? `<div class="empty">No songs match the chord filter.</div>`
+        : rows.map(({ c, ri }) => `<div class="song" data-key="${ri}-${i}"><span class="name">${esc(c[0])}</span>${badge(c[1])}</div>`).join("");
+      sub = DAY_CAT[d] + " · top to bottom";
+    }
+
+    shown += count;
+    return `<div class="day-card">
+      <div class="day-head ${d === "Fun" ? "fun" : ""}">
+        <div class="day-name">${d}</div>
+        <div class="day-sub">${sub} · ${count} songs</div>
+      </div>
+      <div class="day-body">${bodyHTML}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("counter").textContent = shown + " of " + TOTAL + " songs shown";
+
+  if (pinnedPick) {
+    const el = document.querySelector(`[data-key="${songKey(pinnedPick)}"]`);
+    if (el) {
+      el.classList.add("picked");
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+}
+render();
+openRandomModal();
+</script>
+</body>
+</html>
