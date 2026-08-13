@@ -427,15 +427,35 @@ function loadSongs(){
   localStorage.setItem(SONGS_KEY, JSON.stringify(DEFAULT_SONGS));
   return DEFAULT_SONGS.slice();
 }
-function saveSongs(){ try { localStorage.setItem(SONGS_KEY, JSON.stringify(songs)); } catch(e) {} }
+function saveSongs(){ try { localStorage.setItem(SONGS_KEY, JSON.stringify(songs)); } catch(e) {} pushToCloud(); }
 function loadPlays(){
   try { const raw = localStorage.getItem(PLAYS_KEY); if (raw) return JSON.parse(raw); } catch(e) {}
   return {};
 }
-function savePlays(){ try { localStorage.setItem(PLAYS_KEY, JSON.stringify(playCounts)); } catch(e) {} }
+function savePlays(){ try { localStorage.setItem(PLAYS_KEY, JSON.stringify(playCounts)); } catch(e) {} pushToCloud(); }
 
 let songs = loadSongs();
 let playCounts = loadPlays();
+
+// ---------- Cloud sync (Firebase Firestore) ----------
+function pushToCloud(){
+  if (window.__cloud) window.__cloud.save(songs, playCounts);
+}
+window.__onCloudReady = function(cloud){
+  window.__cloud = cloud;
+  cloud.subscribe((data) => {
+    if (data && Array.isArray(data.songs)) {
+      songs = data.songs;
+      playCounts = data.playCounts || {};
+      try { localStorage.setItem(SONGS_KEY, JSON.stringify(songs)); } catch(e) {}
+      try { localStorage.setItem(PLAYS_KEY, JSON.stringify(playCounts)); } catch(e) {}
+      render();
+    } else {
+      // no cloud data yet — seed it with what's currently local
+      pushToCloud();
+    }
+  });
+};
 let activeDays = new Set(DAYS);
 let activePairs = new Set();
 let layout = "lr";
@@ -781,6 +801,39 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   });
 }
+</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBeixbvLIqxqMIgBdJaaZ3wjWaWzmWVRoo",
+    authDomain: "guitar-songs-board.firebaseapp.com",
+    projectId: "guitar-songs-board",
+    storageBucket: "guitar-songs-board.firebasestorage.app",
+    messagingSenderId: "149270910426",
+    appId: "1:149270910426:web:132af6dbbc63a568749ce3",
+    measurementId: "G-0CQZ28VM5Q"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const dataRef = doc(db, "guitarSongsBoard", "data");
+
+  const cloud = {
+    save: (songs, playCounts) => {
+      setDoc(dataRef, { songs, playCounts, updatedAt: Date.now() }).catch((e) => {
+        console.warn("Cloud save failed (offline?)", e);
+      });
+    },
+    subscribe: (callback) => {
+      onSnapshot(dataRef, (snap) => {
+        callback(snap.exists() ? snap.data() : null);
+      }, (err) => console.warn("Cloud sync error", err));
+    }
+  };
+
+  if (window.__onCloudReady) window.__onCloudReady(cloud);
 </script>
 </body>
 </html>
