@@ -274,9 +274,9 @@
     </div>
   </div>
   <div class="box">
-    <div class="box-title">Days layout</div>
-    <button class="chip" id="btn-tb" onclick="setLayout('tb')"><span>Go Vertical</span></button>
-    <button class="chip" id="btn-lr" onclick="setLayout('lr')"><span>Go Horizontal</span></button>
+    <div class="box-title">Playlist</div>
+    <button class="chip" id="btn-tb" onclick="setLayout('tb')"><span>Daily list</span></button>
+    <button class="chip" id="btn-mix" onclick="mixItUp()"><span>🔀 Mix 'em up</span></button>
   </div>
   <div class="box">
     <button class="chip add-song" onclick="openRandomModal()"><span>🎲 Roll the dice</span></button>
@@ -458,7 +458,8 @@ window.__onCloudReady = function(cloud){
 };
 let activeDays = new Set(DAYS);
 let activePairs = new Set();
-let layout = "lr";
+let layout = "tb";
+let mixGroups = null;
 let pinnedPick = null;
 let searchQuery = "";
 
@@ -525,6 +526,24 @@ function setAllDays(on){ activeDays = on ? new Set(DAYS) : new Set(); render(); 
 function toggleDay(d){ activeDays.has(d) ? activeDays.delete(d) : activeDays.add(d); render(); }
 function togglePair(id){ activePairs.has(id) ? activePairs.delete(id) : activePairs.add(id); render(); }
 function setLayout(l){ layout = l; render(); }
+const MIX_LABELS = ["Mix Mon","Mix Tue","Mix Wed","Mix Thu","Mix Fri","Mix Sat","Mix Sun","Mix Fun"];
+function mixItUp(){
+  layout = "mix";
+  const pool = songs.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const groups = MIX_LABELS.map(() => []);
+  const base = Math.floor(pool.length / 8);
+  let idx = 0;
+  for (let g = 0; g < 8; g++) {
+    for (let k = 0; k < base; k++) groups[g].push(pool[idx++]);
+  }
+  while (idx < pool.length) groups[7].push(pool[idx++]);
+  mixGroups = groups;
+  render();
+}
 function onSearchInput(v){ searchQuery = v; render(); }
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function chordOK(c){
@@ -556,7 +575,7 @@ function render(){
       <span>${p.label}</span><span class="cnt">${n}</span></button>`;
   }).join("");
 
-  document.getElementById("btn-lr").className = "chip" + (layout === "lr" ? " on" : "");
+  document.getElementById("btn-mix").className = "chip" + (layout === "mix" ? " on" : "");
   document.getElementById("btn-tb").className = "chip" + (layout === "tb" ? " on" : "");
 
   const bannerEl = document.getElementById("pickBanner");
@@ -566,7 +585,43 @@ function render(){
     : "";
 
   const board = document.getElementById("board");
-  board.className = layout;
+  board.className = layout === "mix" ? "lr" : "tb";
+
+  if (layout === "mix") {
+    if (!mixGroups) {
+      board.innerHTML = `<div class="no-days">Click "🔀 Mix 'em up" in the sidebar to shuffle songs into mixed collections.</div>`;
+      document.getElementById("counter").textContent = "0 of " + songs.length + " songs shown";
+      return;
+    }
+    const q = searchQuery.trim().toLowerCase();
+    let shown = 0;
+    board.innerHTML = MIX_LABELS.map((label, i) => {
+      const list = mixGroups[i].filter(s => !q || s.name.toLowerCase().includes(q) || s.chord.toLowerCase().includes(q));
+      let count = 0;
+      const cells = list.map(s => {
+        const ok = chordOK(s.chord);
+        if (ok) count++;
+        return `<span class="cell${ok ? "" : " dim"}" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span>${badge(s.chord)}${genderMark(s.gender)}</span>`;
+      }).join("");
+      shown += count;
+      const bodyHTML = `<div class="line"><div class="line-songs">${cells || `<div class="empty">—</div>`}</div></div>`;
+      const sub = mixGroups[i].length + " songs";
+      return `<div class="day-card">
+        <div class="day-head ${label === "Mix Fun" ? "fun" : ""}">
+          <div class="day-name">${label}</div>
+          <div class="day-sub">${sub}</div>
+        </div>
+        <div class="day-body">${bodyHTML}</div>
+      </div>`;
+    }).join("");
+    document.getElementById("counter").textContent = shown + " of " + songs.length + " songs shown";
+    if (pinnedPick) {
+      const el = document.querySelector(`[data-id="${pinnedPick.id}"]`);
+      if (el) { el.classList.add("picked"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    }
+    return;
+  }
+
   const visible = DAYS.filter(d => activeDays.has(d));
   if (visible.length === 0) {
     board.innerHTML = `<div class="no-days">No days selected. Pick days in the sidebar to see songs.</div>`;
@@ -579,22 +634,11 @@ function render(){
     const q = searchQuery.trim().toLowerCase();
     const catMatch = q && (DAY_CAT[d] || "").toLowerCase().includes(q);
     const list = songs.filter(s => s.day === d && (!q || catMatch || s.name.toLowerCase().includes(q) || s.chord.toLowerCase().includes(q)));
-    let bodyHTML, count = 0;
-
-    if (layout === "lr") {
-      const cells = list.map(s => {
-        const ok = chordOK(s.chord);
-        if (ok) count++;
-        return `<span class="cell${ok ? "" : " dim"}" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span>${badge(s.chord)}${genderMark(s.gender)}</span>`;
-      }).join("");
-      bodyHTML = `<div class="line"><div class="line-songs">${cells || `<div class="empty">—</div>`}</div></div>`;
-    } else {
-      const rows = list.filter(s => chordOK(s.chord));
-      count = rows.length;
-      bodyHTML = rows.length === 0
-        ? `<div class="empty">No songs match the chord filter.</div>`
-        : rows.map(s => `<div class="song" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span><span class="chord-col">${badge(s.chord)}</span><span class="gender-col">${genderMark(s.gender)}</span></div>`).join("");
-    }
+    const rows = list.filter(s => chordOK(s.chord));
+    const count = rows.length;
+    const bodyHTML = rows.length === 0
+      ? `<div class="empty">No songs match the chord filter.</div>`
+      : rows.map(s => `<div class="song" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span><span class="chord-col">${badge(s.chord)}</span><span class="gender-col">${genderMark(s.gender)}</span></div>`).join("");
 
     shown += count;
     const sub = (DAY_CAT[d] || "") + " · " + count + " songs";
