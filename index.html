@@ -207,7 +207,17 @@
   }
   .hidden { display: none !important; }
   .list-card { max-width: 460px; text-align: left; }
-  .list-table-wrap { max-height: 65vh; overflow-y: auto; margin-top: 10px; border: 1px solid #e6e0d2; border-radius: 8px; }
+  .list-card-body { display: flex; gap: 6px; align-items: flex-start; }
+  .list-table-wrap { flex: 1; min-width: 0; max-height: 65vh; overflow-y: auto; margin-top: 10px; border: 1px solid #e6e0d2; border-radius: 8px; }
+  .az-strip {
+    display: flex; flex-direction: column; align-items: center;
+    margin-top: 10px; padding: 4px 2px; flex-shrink: 0;
+    max-height: 65vh; overflow-y: auto;
+    font-size: 9.5px; font-weight: 800; color: #9a927f; user-select: none;
+  }
+  .az-strip span { cursor: pointer; padding: 1px 4px; border-radius: 3px; line-height: 1.5; }
+  .az-strip span:hover { background: #eee9dc; color: #2b2822; }
+  .az-strip span.disabled { opacity: .25; cursor: default; pointer-events: none; }
   .list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .list-table th {
     position: sticky; top: 0; background: #2f3e28; color: #f5efdc;
@@ -314,6 +324,7 @@
     <div class="modal-buttons">
       <button class="modal-btn primary" onclick="stayWithSong()">✅ Stay with this song</button>
       <button class="modal-btn secondary" onclick="tiramisuPick()">🍰 Tiramisu</button>
+      <button class="modal-btn secondary" onclick="editFromRandomModal()">✏️ Edit this song</button>
       <button class="modal-btn ghost" onclick="skipToNormal()">Back to normal</button>
     </div>
   </div>
@@ -340,17 +351,20 @@
       <div class="modal-eyebrow" style="margin-bottom:0;">Full Song List</div>
       <button class="arrow-btn" onclick="closeFullList()">&times; Close</button>
     </div>
-    <div class="list-table-wrap">
-      <table class="list-table">
-        <thead>
-          <tr>
-            <th onclick="sortFullList('name')" id="th-name">Song <span class="sort-arrow" id="arrow-name"></span></th>
-            <th onclick="sortFullList('chord')" id="th-chord">Chord <span class="sort-arrow" id="arrow-chord"></span></th>
-            <th onclick="sortFullList('gender')" id="th-gender">&#9792;/&#9794; <span class="sort-arrow" id="arrow-gender"></span></th>
-          </tr>
-        </thead>
-        <tbody id="fullListBody"></tbody>
-      </table>
+    <div class="list-card-body">
+      <div class="list-table-wrap">
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th onclick="sortFullList('name')" id="th-name">Song <span class="sort-arrow" id="arrow-name"></span></th>
+              <th onclick="sortFullList('chord')" id="th-chord">Chord <span class="sort-arrow" id="arrow-chord"></span></th>
+              <th onclick="sortFullList('gender')" id="th-gender">&#9792;/&#9794; <span class="sort-arrow" id="arrow-gender"></span></th>
+            </tr>
+          </thead>
+          <tbody id="fullListBody"></tbody>
+        </table>
+      </div>
+      <div class="az-strip" id="azStrip"></div>
     </div>
   </div>
 </div>
@@ -519,6 +533,7 @@ function goToToday(){
   render();
 }
 function stayWithSong(){ pinnedPick = currentSong(); closeModal(); goToToday(); }
+function editFromRandomModal(){ const id = currentSong().id; closeModal(); openEditSong(id); }
 function skipToNormal(){ pinnedPick = null; closeModal(); goToToday(); }
 function clearPin(){ pinnedPick = null; render(); }
 
@@ -691,6 +706,30 @@ function renderFullList(){
       <td class="chord">${esc(s.chord)}</td>
       <td class="gender-cell">${s.gender === "male" ? `<span class="gender-pill male">&#9794;</span>` : s.gender === "female" ? `<span class="gender-pill female">&#9792;</span>` : "—"}</td>
     </tr>`).join("");
+
+  // Build A–Z jump strip (based on current sort order, using each song's name)
+  const letterFirstIndex = {};
+  sorted.forEach((s, i) => {
+    const letter = firstLetterOf(s.name);
+    if (!(letter in letterFirstIndex)) letterFirstIndex[letter] = i;
+  });
+  window.__fullListLetterIndex = letterFirstIndex;
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").concat(["#"]);
+  document.getElementById("azStrip").innerHTML = letters.map(L => {
+    const has = L in letterFirstIndex;
+    return `<span class="${has ? "" : "disabled"}" onclick="jumpToLetter('${L}')">${L}</span>`;
+  }).join("");
+}
+function firstLetterOf(name){
+  const stripped = (name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const ch = stripped.trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : "#";
+}
+function jumpToLetter(letter){
+  const idx = window.__fullListLetterIndex ? window.__fullListLetterIndex[letter] : undefined;
+  if (idx === undefined) return;
+  const rows = document.querySelectorAll("#fullListBody tr");
+  if (rows[idx]) rows[idx].scrollIntoView({ block: "start" });
 }
 function closeFullList(){
   document.getElementById("fullListOverlay").classList.add("hidden");
