@@ -238,6 +238,7 @@
   .gender-pill.male { background: #16213e; }
   .gender-pill.female { background: #8e24aa; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="watermark" aria-hidden="true">
@@ -301,6 +302,7 @@
       <button class="chip add-song half" onclick="openAddSong()"><span>&#65291; Add New</span></button>
       <button class="chip add-song half" onclick="openFullList()"><span>&#128203; Full List</span></button>
     </div>
+    <button class="chip" style="margin-top:6px;" onclick="exportSongsToExcel()"><span>&#11015; Export Excel</span></button>
   </div>
 </aside>
 <main>
@@ -675,6 +677,31 @@ function render(){
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
+}
+
+// ---------- Export to Excel ----------
+function exportSongsToExcel(){
+  if (typeof XLSX === "undefined") {
+    alert("Excel export library failed to load. Check your internet connection and try again.");
+    return;
+  }
+  const dayLabel = d => d === "Fun" ? "Anytimes" : d;
+  const genderLabel = g => g === "male" ? "Male" : g === "female" ? "Female" : "";
+  const rows = songs
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, "vi"))
+    .map(s => ({
+      "Song": s.name,
+      "Chord": s.chord,
+      "Day": dayLabel(s.day),
+      "Gender": genderLabel(s.gender)
+    }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = [{ wch: 42 }, { wch: 8 }, { wch: 10 }, { wch: 8 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Songs");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Guitar_Songs_Board_${dateStr}.xlsx`);
 }
 
 // ---------- Full song list (A–Z, sortable) ----------
