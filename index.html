@@ -351,8 +351,10 @@
   <div class="modal-card list-card">
     <div class="modal-top-row">
       <div class="modal-eyebrow" style="margin-bottom:0;">Full Song List</div>
+      <button class="arrow-btn" onclick="addFromFullList()" title="Add new song">&#65291; Add New</button>
       <button class="arrow-btn" onclick="closeFullList()">&times; Close</button>
     </div>
+    <input id="fullListSearchInput" type="text" class="text-input" style="margin-bottom:8px;" placeholder="&#128269; Search by song or chord..." oninput="onFullListSearch(this.value)">
     <div class="list-card-body">
       <div class="list-table-wrap">
         <table class="list-table">
@@ -706,11 +708,23 @@ function exportSongsToExcel(){
 
 // ---------- Full song list (A–Z, sortable) ----------
 let listSort = { col: "name", dir: 1 };
+let fullListQuery = "";
 
 function openFullList(){
   listSort = { col: "name", dir: 1 };
+  fullListQuery = "";
+  const input = document.getElementById("fullListSearchInput");
+  if (input) input.value = "";
   renderFullList();
   document.getElementById("fullListOverlay").classList.remove("hidden");
+}
+function onFullListSearch(v){
+  fullListQuery = v;
+  renderFullList();
+}
+function addFromFullList(){
+  closeFullList();
+  openAddSong();
 }
 function sortFullList(col){
   if (listSort.col === col) listSort.dir *= -1;
@@ -720,14 +734,18 @@ function sortFullList(col){
 function renderFullList(){
   const { col, dir } = listSort;
   const val = s => (s[col] || "").toString();
-  const sorted = songs.slice().sort((a,b) => val(a).localeCompare(val(b), "vi") * dir);
+  const q = fullListQuery.trim().toLowerCase();
+  const filtered = songs.filter(s => !q || s.name.toLowerCase().includes(q) || s.chord.toLowerCase().includes(q));
+  const sorted = filtered.slice().sort((a,b) => val(a).localeCompare(val(b), "vi") * dir);
 
   ["name","chord","gender"].forEach(c => {
     const arrow = document.getElementById("arrow-" + c);
     arrow.textContent = c === col ? (dir === 1 ? "▲" : "▼") : "";
   });
 
-  document.getElementById("fullListBody").innerHTML = sorted.map(s => `
+  document.getElementById("fullListBody").innerHTML = sorted.length === 0
+    ? `<tr><td colspan="3" style="text-align:center; color:#9a927f; padding:16px;">No songs match your search.</td></tr>`
+    : sorted.map(s => `
     <tr onclick="closeFullList(); openSongInfo('${s.id}')">
       <td>${esc(s.name)}</td>
       <td class="chord">${esc(s.chord)}</td>
