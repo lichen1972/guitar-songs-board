@@ -332,7 +332,7 @@
   </div>
 </div>
 
-<div id="songInfoOverlay" class="modal-overlay hidden">
+<div id="songInfoOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeSongInfo()">
   <div class="modal-card">
     <div class="modal-top-row">
       <div class="modal-eyebrow" style="margin-bottom:0;">Song Info</div>
@@ -925,8 +925,10 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   const modal = document.getElementById("modalOverlay");
   const fullList = document.getElementById("fullListOverlay");
+  const songInfo = document.getElementById("songInfoOverlay");
   if (modal && !modal.classList.contains("hidden")) closeModal();
   if (fullList && !fullList.classList.contains("hidden")) closeFullList();
+  if (songInfo && !songInfo.classList.contains("hidden")) closeSongInfo();
 });
 
 render();
