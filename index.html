@@ -313,7 +313,7 @@
   <div id="board"></div>
 </main>
 
-<div id="modalOverlay" class="modal-overlay hidden">
+<div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeModal()">
   <div class="modal-card">
     <div class="modal-top-row">
       <button class="arrow-btn" id="lastBtn" onclick="lastPick()">&laquo;&laquo; LAST</button>
@@ -347,7 +347,7 @@
   </div>
 </div>
 
-<div id="fullListOverlay" class="modal-overlay hidden">
+<div id="fullListOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeFullList()">
   <div class="modal-card list-card">
     <div class="modal-top-row">
       <div class="modal-eyebrow" style="margin-bottom:0;">Full Song List</div>
