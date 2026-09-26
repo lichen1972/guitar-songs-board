@@ -921,6 +921,14 @@ function deleteSongForm(){
   render();
 }
 
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const modal = document.getElementById("modalOverlay");
+  const fullList = document.getElementById("fullListOverlay");
+  if (modal && !modal.classList.contains("hidden")) closeModal();
+  if (fullList && !fullList.classList.contains("hidden")) closeFullList();
+});
+
 render();
 openRandomModal();
 
