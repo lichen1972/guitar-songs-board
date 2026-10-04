@@ -326,7 +326,7 @@
   <div id="board"></div>
 </main>
 
-<div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeModal()">
+<div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this) skipToNormal()">
   <div class="modal-card">
     <div class="modal-top-row">
       <button class="arrow-btn" id="lastBtn" onclick="lastPick()">&laquo;&laquo; LAST</button>
@@ -1324,7 +1324,7 @@ document.addEventListener("keydown", (e) => {
   const songInfo = document.getElementById("songInfoOverlay");
   const monthList = document.getElementById("monthListOverlay");
   const monthPractice = document.getElementById("monthPracticeOverlay");
-  if (modal && !modal.classList.contains("hidden")) closeModal();
+  if (modal && !modal.classList.contains("hidden")) skipToNormal();
   if (fullList && !fullList.classList.contains("hidden")) closeFullList();
   if (songInfo && !songInfo.classList.contains("hidden")) closeSongInfo();
   if (monthList && !monthList.classList.contains("hidden")) exitMonthList();
