@@ -348,7 +348,9 @@
 <div id="songInfoOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeSongInfo()">
   <div class="modal-card">
     <div class="modal-top-row">
+      <button class="arrow-btn" id="infoPrevBtn" onclick="prevInfoSong()">&laquo; PREV</button>
       <div class="modal-eyebrow" style="margin-bottom:0;">Song Info</div>
+      <button class="arrow-btn" id="infoNextBtn" onclick="nextInfoSong()">NEXT &raquo;</button>
       <button class="arrow-btn" id="infoEditBtn" onclick="editFromInfo()" title="Edit">✏️</button>
     </div>
     <div class="modal-badge-wrap" id="infoBadge"></div>
@@ -1055,6 +1057,18 @@ function openSongInfo(id, monthContext){
   document.getElementById("infoMeta").textContent = "Day: " + s.day;
   document.getElementById("songInfoOverlay").classList.remove("hidden");
 
+  const prevBtn = document.getElementById("infoPrevBtn");
+  const nextBtn = document.getElementById("infoNextBtn");
+  if (infoMonthContext) {
+    const list = monthlyLists[infoMonthContext] || [];
+    const idx = list.indexOf(id);
+    prevBtn.style.visibility = idx <= 0 ? "hidden" : "visible";
+    nextBtn.style.visibility = (idx === -1 || idx >= list.length - 1) ? "hidden" : "visible";
+  } else {
+    prevBtn.style.visibility = "hidden";
+    nextBtn.style.visibility = "hidden";
+  }
+
   const countdownEl = document.getElementById("infoCountdown");
   if (!infoMonthContext) {
     countdownEl.textContent = "";
@@ -1081,6 +1095,20 @@ function openSongInfo(id, monthContext){
       countdownEl.textContent = `⏱ ${infoSecondsLeft}s to mark as practiced`;
     }
   }, 1000);
+}
+function prevInfoSong(){
+  if (!infoMonthContext) return;
+  const list = monthlyLists[infoMonthContext] || [];
+  const idx = list.indexOf(infoSongId);
+  if (idx <= 0) return;
+  openSongInfo(list[idx - 1], infoMonthContext);
+}
+function nextInfoSong(){
+  if (!infoMonthContext) return;
+  const list = monthlyLists[infoMonthContext] || [];
+  const idx = list.indexOf(infoSongId);
+  if (idx === -1 || idx >= list.length - 1) return;
+  openSongInfo(list[idx + 1], infoMonthContext);
 }
 function closeSongInfo(){
   clearInfoTimer();
