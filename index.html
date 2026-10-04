@@ -354,6 +354,7 @@
     <div class="modal-badge-wrap" id="infoBadge"></div>
     <div class="modal-song" id="infoSong"></div>
     <div class="modal-meta" id="infoMeta"></div>
+    <div id="infoCountdown" class="practice-countdown"></div>
     <div class="modal-buttons">
       <button class="modal-btn ghost" onclick="closeSongInfo()">Close</button>
     </div>
@@ -906,7 +907,7 @@ function renderMonthListBody(){
     const s = songs.find(x => x.id === id);
     if (!s) return "";
     const isPlayed = played.has(id);
-    return `<tr class="${isPlayed ? "played-row" : ""}" onclick="closeMonthList(); openSongInfo('${s.id}')">
+    return `<tr class="${isPlayed ? "played-row" : ""}" onclick="closeMonthList(); openSongInfo('${s.id}', '${currentMonth}')">
       <td>${i + 1}</td>
       <td>${esc(s.name)}${isPlayed ? ` <span class="played-tag">✓ Played</span>` : ""}</td>
       <td class="chord">${esc(s.chord)}</td>
@@ -985,7 +986,7 @@ function openMonthPracticeAt(i){
     practiceSecondsLeft--;
     if (practiceSecondsLeft <= 0) {
       clearPracticeTimer();
-      markPracticedNow(s);
+      markPracticedNow(currentMonth, s);
       countdownEl.textContent = "✅ Practiced!";
       countdownEl.className = "practice-countdown done";
     } else {
@@ -993,10 +994,10 @@ function openMonthPracticeAt(i){
     }
   }, 1000);
 }
-function markPracticedNow(s){
-  if (!monthlyPlayed[currentMonth]) monthlyPlayed[currentMonth] = [];
-  if (!monthlyPlayed[currentMonth].includes(s.id)) {
-    monthlyPlayed[currentMonth].push(s.id);
+function markPracticedNow(month, s){
+  if (!monthlyPlayed[month]) monthlyPlayed[month] = [];
+  if (!monthlyPlayed[month].includes(s.id)) {
+    monthlyPlayed[month].push(s.id);
     saveMonthly();
   }
 }
@@ -1036,21 +1037,58 @@ function exitToMixToday(){
 
 // ---------- Song info (read-only, no password) ----------
 let infoSongId = null;
+let infoMonthContext = null;
+let infoTimerId = null;
+let infoSecondsLeft = 15;
 
-function openSongInfo(id){
+function clearInfoTimer(){
+  if (infoTimerId) { clearInterval(infoTimerId); infoTimerId = null; }
+}
+function openSongInfo(id, monthContext){
   const s = songs.find(x => x.id === id);
   if (!s) return;
+  clearInfoTimer();
   infoSongId = id;
+  infoMonthContext = monthContext || null;
   document.getElementById("infoBadge").innerHTML = badge(s.chord) + genderMark(s.gender);
   document.getElementById("infoSong").textContent = s.name;
   document.getElementById("infoMeta").textContent = "Day: " + s.day;
   document.getElementById("songInfoOverlay").classList.remove("hidden");
+
+  const countdownEl = document.getElementById("infoCountdown");
+  if (!infoMonthContext) {
+    countdownEl.textContent = "";
+    countdownEl.className = "practice-countdown";
+    return;
+  }
+  const alreadyPlayed = (monthlyPlayed[infoMonthContext] || []).includes(s.id);
+  if (alreadyPlayed) {
+    countdownEl.textContent = "✓ Already practiced";
+    countdownEl.className = "practice-countdown done";
+    return;
+  }
+  infoSecondsLeft = 15;
+  countdownEl.className = "practice-countdown";
+  countdownEl.textContent = `⏱ ${infoSecondsLeft}s to mark as practiced`;
+  infoTimerId = setInterval(() => {
+    infoSecondsLeft--;
+    if (infoSecondsLeft <= 0) {
+      clearInfoTimer();
+      markPracticedNow(infoMonthContext, s);
+      countdownEl.textContent = "✅ Practiced!";
+      countdownEl.className = "practice-countdown done";
+    } else {
+      countdownEl.textContent = `⏱ ${infoSecondsLeft}s to mark as practiced`;
+    }
+  }, 1000);
 }
 function closeSongInfo(){
+  clearInfoTimer();
   document.getElementById("songInfoOverlay").classList.add("hidden");
 }
 function editFromInfo(){
   const id = infoSongId;
+  clearInfoTimer();
   closeSongInfo();
   if (id) openEditSong(id);
 }
