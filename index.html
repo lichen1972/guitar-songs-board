@@ -758,7 +758,7 @@ function render(){
       const cells = list.map(s => {
         const ok = chordOK(s.chord);
         if (ok) count++;
-        return `<span class="cell${ok ? "" : " dim"}" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span>${badge(s.chord)}${genderMark(s.gender)}</span>`;
+        return `<span class="cell${ok ? "" : " dim"}" data-id="${s.id}" onclick="openSongInfoFromEl(this)"><span class="name">${esc(s.name)}</span>${badge(s.chord)}${genderMark(s.gender)}</span>`;
       }).join("");
       shown += count;
       const bodyHTML = `<div class="line"><div class="line-songs">${cells || `<div class="empty">—</div>`}</div></div>`;
@@ -795,7 +795,7 @@ function render(){
     const count = rows.length;
     const bodyHTML = rows.length === 0
       ? `<div class="empty">No songs match the chord filter.</div>`
-      : rows.map(s => `<div class="song" data-id="${s.id}" onclick="openSongInfo('${s.id}')"><span class="name">${esc(s.name)}</span><span class="chord-col">${badge(s.chord)}</span><span class="gender-col">${genderMark(s.gender)}</span></div>`).join("");
+      : rows.map(s => `<div class="song" data-id="${s.id}" onclick="openSongInfoFromEl(this)"><span class="name">${esc(s.name)}</span><span class="chord-col">${badge(s.chord)}</span><span class="gender-col">${genderMark(s.gender)}</span></div>`).join("");
 
     shown += count;
     const sub = (DAY_CAT[d] || "") + " · " + count + " songs";
@@ -847,6 +847,7 @@ function exportSongsToExcel(){
 // ---------- Full song list (A–Z, sortable) ----------
 let listSort = { col: "name", dir: 1 };
 let fullListQuery = "";
+let fullListOrder = [];
 
 function openFullList(){
   listSort = { col: "name", dir: 1 };
@@ -881,6 +882,7 @@ function renderFullList(){
     return val(a).localeCompare(val(b), "vi") * dir;
   });
 
+  fullListOrder = sorted.map(x => x.id);
   ["name","chord","gender","practiceCount"].forEach(c => {
     const arrow = document.getElementById("arrow-" + c);
     arrow.textContent = c === col ? (dir === 1 ? "▲" : "▼") : "";
@@ -889,7 +891,7 @@ function renderFullList(){
   document.getElementById("fullListBody").innerHTML = sorted.length === 0
     ? `<tr><td colspan="4" style="text-align:center; color:#9a927f; padding:16px;">No songs match your search.</td></tr>`
     : sorted.map(s => `
-    <tr onclick="closeFullList(); openSongInfo('${s.id}')">
+    <tr onclick="closeFullList(); openSongInfo('${s.id}', null, fullListOrder)">
       <td>${esc(s.name)}</td>
       <td class="chord">${esc(s.chord)}</td>
       <td class="gender-cell">${s.gender === "male" ? `<span class="gender-pill male">&#9794;</span>` : s.gender === "female" ? `<span class="gender-pill female">&#9792;</span>` : "—"}</td>
@@ -1103,18 +1105,32 @@ function exitToMixToday(){
 // ---------- Song info (read-only, no password) ----------
 let infoSongId = null;
 let infoMonthContext = null;
+let infoNavList = [];
 let infoTimerId = null;
 let infoSecondsLeft = 15;
 
 function clearInfoTimer(){
   if (infoTimerId) { clearInterval(infoTimerId); infoTimerId = null; }
 }
-function openSongInfo(id, monthContext){
+// Open Song Info from a clicked board element: Prev/Next walk through the
+// songs visible in that same list/card, in the order shown on screen.
+function openSongInfoFromEl(el){
+  const id = el.getAttribute("data-id");
+  const container = el.parentElement;
+  const ids = Array.from(container.children)
+    .filter(n => n.hasAttribute("data-id") && (!n.classList.contains("dim") || n === el))
+    .map(n => n.getAttribute("data-id"));
+  openSongInfo(id, null, ids);
+}
+function openSongInfo(id, monthContext, navList){
   const s = songs.find(x => x.id === id);
   if (!s) return;
   clearInfoTimer();
   infoSongId = id;
   infoMonthContext = monthContext || null;
+  if (infoMonthContext) infoNavList = monthlyLists[infoMonthContext] || [];
+  else if (Array.isArray(navList) && navList.length) infoNavList = navList;
+  else infoNavList = songs.map(x => x.id);
   document.getElementById("infoBadge").innerHTML = badge(s.chord) + genderMark(s.gender);
   document.getElementById("infoSong").textContent = s.name;
   document.getElementById("infoMeta").textContent = "Day: " + s.day;
@@ -1124,15 +1140,9 @@ function openSongInfo(id, monthContext){
 
   const prevBtn = document.getElementById("infoPrevBtn");
   const nextBtn = document.getElementById("infoNextBtn");
-  if (infoMonthContext) {
-    const list = monthlyLists[infoMonthContext] || [];
-    const idx = list.indexOf(id);
-    prevBtn.style.visibility = idx <= 0 ? "hidden" : "visible";
-    nextBtn.style.visibility = (idx === -1 || idx >= list.length - 1) ? "hidden" : "visible";
-  } else {
-    prevBtn.style.visibility = "hidden";
-    nextBtn.style.visibility = "hidden";
-  }
+  const navIdx = infoNavList.indexOf(id);
+  prevBtn.style.visibility = navIdx <= 0 ? "hidden" : "visible";
+  nextBtn.style.visibility = (navIdx === -1 || navIdx >= infoNavList.length - 1) ? "hidden" : "visible";
 
   const countdownEl = document.getElementById("infoCountdown");
   if (!infoMonthContext) {
@@ -1164,18 +1174,14 @@ function openSongInfo(id, monthContext){
   }, 1000);
 }
 function prevInfoSong(){
-  if (!infoMonthContext) return;
-  const list = monthlyLists[infoMonthContext] || [];
-  const idx = list.indexOf(infoSongId);
+  const idx = infoNavList.indexOf(infoSongId);
   if (idx <= 0) return;
-  openSongInfo(list[idx - 1], infoMonthContext);
+  openSongInfo(infoNavList[idx - 1], infoMonthContext, infoNavList);
 }
 function nextInfoSong(){
-  if (!infoMonthContext) return;
-  const list = monthlyLists[infoMonthContext] || [];
-  const idx = list.indexOf(infoSongId);
-  if (idx === -1 || idx >= list.length - 1) return;
-  openSongInfo(list[idx + 1], infoMonthContext);
+  const idx = infoNavList.indexOf(infoSongId);
+  if (idx === -1 || idx >= infoNavList.length - 1) return;
+  openSongInfo(infoNavList[idx + 1], infoMonthContext, infoNavList);
 }
 function closeSongInfo(){
   clearInfoTimer();
