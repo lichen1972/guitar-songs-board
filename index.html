@@ -227,8 +227,8 @@
     cursor: pointer; user-select: none;
   }
   .sort-arrow { font-size: 9px; opacity: .8; }
-  .list-table th:nth-child(2), .list-table th:nth-child(3),
-  .list-table td:nth-child(2), .list-table td:nth-child(3) { text-align: center; width: 52px; }
+  .list-table th:nth-child(2), .list-table th:nth-child(3), .list-table th:nth-child(4),
+  .list-table td:nth-child(2), .list-table td:nth-child(3), .list-table td:nth-child(4) { text-align: center; width: 52px; }
   .list-table td { padding: 6px 8px; border-top: 1px solid #eee9dc; color: #2b2822; cursor: pointer; }
   .list-table tr:hover td { background: #f7f4ec; }
   .list-table td.chord { font-weight: 800; }
@@ -336,8 +336,10 @@
     <div class="modal-badge-wrap" id="modalBadge"></div>
     <div class="modal-song" id="modalSong"></div>
     <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-meta" id="modalPracticeCount" style="margin-top:-4px;"></div>
+    <div id="rollCountdown" class="practice-countdown"></div>
     <div class="modal-buttons">
-      <button class="modal-btn primary" onclick="stayWithSong()">✅ Stay with this song</button>
+      <button class="modal-btn primary" onclick="letItCount()">✅ Let's it count</button>
       <button class="modal-btn secondary" onclick="tiramisuPick()">🍰 Tiramisu</button>
       <button class="modal-btn secondary" onclick="editFromRandomModal()">✏️ Edit this song</button>
       <button class="modal-btn ghost" onclick="skipToNormal()">Back to list</button>
@@ -356,6 +358,7 @@
     <div class="modal-badge-wrap" id="infoBadge"></div>
     <div class="modal-song" id="infoSong"></div>
     <div class="modal-meta" id="infoMeta"></div>
+    <div class="modal-meta" id="infoPracticeCount" style="margin-top:-4px;"></div>
     <div id="infoCountdown" class="practice-countdown"></div>
     <div class="modal-buttons">
       <button class="modal-btn ghost" onclick="closeSongInfo()">Close</button>
@@ -379,6 +382,7 @@
               <th onclick="sortFullList('name')" id="th-name">Song <span class="sort-arrow" id="arrow-name"></span></th>
               <th onclick="sortFullList('chord')" id="th-chord">Chord <span class="sort-arrow" id="arrow-chord"></span></th>
               <th onclick="sortFullList('gender')" id="th-gender">&#9792;/&#9794; <span class="sort-arrow" id="arrow-gender"></span></th>
+              <th onclick="sortFullList('practiceCount')" id="th-practiceCount">Practiced <span class="sort-arrow" id="arrow-practiceCount"></span></th>
             </tr>
           </thead>
           <tbody id="fullListBody"></tbody>
@@ -497,6 +501,7 @@ const SONGS_KEY = "gsb_songs_v1";
 const PLAYS_KEY = "gsb_playcounts_v1";
 const MONTHLY_LISTS_KEY = "gsb_monthly_lists_v1";
 const MONTHLY_PLAYED_KEY = "gsb_monthly_played_v1";
+const PRACTICE_COUNTS_KEY = "gsb_practice_counts_v1";
 const PASSWORD = "jjj";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -527,15 +532,28 @@ function saveMonthly(){
   try { localStorage.setItem(MONTHLY_PLAYED_KEY, JSON.stringify(monthlyPlayed)); } catch(e) {}
   pushToCloud();
 }
+function loadPracticeCounts(){
+  try { const raw = localStorage.getItem(PRACTICE_COUNTS_KEY); if (raw) return JSON.parse(raw); } catch(e) {}
+  return {};
+}
+function savePracticeCounts(){
+  try { localStorage.setItem(PRACTICE_COUNTS_KEY, JSON.stringify(practiceCounts)); } catch(e) {}
+  pushToCloud();
+}
+function incrementPracticeCount(songId){
+  practiceCounts[songId] = (practiceCounts[songId] || 0) + 1;
+  savePracticeCounts();
+}
 
 let songs = loadSongs();
 let playCounts = loadPlays();
 let monthlyLists = loadMonthlyLists();
 let monthlyPlayed = loadMonthlyPlayed();
+let practiceCounts = loadPracticeCounts();
 
 // ---------- Cloud sync (Firebase Firestore) ----------
 function pushToCloud(){
-  if (window.__cloud) window.__cloud.save(songs, playCounts, monthlyLists, monthlyPlayed);
+  if (window.__cloud) window.__cloud.save(songs, playCounts, monthlyLists, monthlyPlayed, practiceCounts);
 }
 window.__onCloudReady = function(cloud){
   window.__cloud = cloud;
@@ -545,10 +563,12 @@ window.__onCloudReady = function(cloud){
       playCounts = data.playCounts || {};
       monthlyLists = data.monthlyLists || {};
       monthlyPlayed = data.monthlyPlayed || {};
+      practiceCounts = data.practiceCounts || {};
       try { localStorage.setItem(SONGS_KEY, JSON.stringify(songs)); } catch(e) {}
       try { localStorage.setItem(PLAYS_KEY, JSON.stringify(playCounts)); } catch(e) {}
       try { localStorage.setItem(MONTHLY_LISTS_KEY, JSON.stringify(monthlyLists)); } catch(e) {}
       try { localStorage.setItem(MONTHLY_PLAYED_KEY, JSON.stringify(monthlyPlayed)); } catch(e) {}
+      try { localStorage.setItem(PRACTICE_COUNTS_KEY, JSON.stringify(practiceCounts)); } catch(e) {}
       render();
     } else {
       // no cloud data yet — seed it with what's currently local
@@ -582,12 +602,41 @@ function pickLeastPopped(excludeId){
 }
 function currentSong(){ return pickHistory[historyIndex]; }
 
+let rollTimerId = null;
+let rollSecondsLeft = 15;
+let rollCounted = false;
+function clearRollTimer(){
+  if (rollTimerId) { clearInterval(rollTimerId); rollTimerId = null; }
+}
 function renderModal(){
+  clearRollTimer();
   const s = currentSong();
   document.getElementById("modalBadge").innerHTML = badge(s.chord) + genderMark(s.gender);
   document.getElementById("modalSong").textContent = s.name;
   document.getElementById("modalMeta").textContent = "Day: " + s.day;
   document.getElementById("lastBtn").disabled = historyIndex <= 0;
+  updateModalPracticeCount(s);
+
+  rollCounted = false;
+  rollSecondsLeft = 15;
+  const countdownEl = document.getElementById("rollCountdown");
+  countdownEl.className = "practice-countdown";
+  countdownEl.textContent = `⏱ ${rollSecondsLeft}s to mark as practiced`;
+  rollTimerId = setInterval(() => {
+    rollSecondsLeft--;
+    if (rollSecondsLeft <= 0) {
+      clearRollTimer();
+      if (!rollCounted) { incrementPracticeCount(s.id); rollCounted = true; updateModalPracticeCount(s); }
+      countdownEl.textContent = "✅ Counted!";
+      countdownEl.className = "practice-countdown done";
+    } else {
+      countdownEl.textContent = `⏱ ${rollSecondsLeft}s to mark as practiced`;
+    }
+  }, 1000);
+}
+function updateModalPracticeCount(s){
+  const n = practiceCounts[s.id] || 0;
+  document.getElementById("modalPracticeCount").textContent = `🎯 Practiced ${n} time${n === 1 ? "" : "s"} so far`;
 }
 function pushPick(song){
   pickHistory.push(song);
@@ -611,14 +660,21 @@ function lastPick(){
 function tiramisuPick(){
   pushPick(pickLeastPopped(currentSong().id));
 }
-function closeModal(){ document.getElementById("modalOverlay").classList.add("hidden"); }
+function closeModal(){ clearRollTimer(); document.getElementById("modalOverlay").classList.add("hidden"); }
 function goToToday(){
   const map = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   activeDays = new Set([map[new Date().getDay()]]);
-  layout = "lr";
+  layout = "tb";
   render();
 }
-function stayWithSong(){ pinnedPick = currentSong(); closeModal(); goToToday(); }
+function letItCount(){
+  const s = currentSong();
+  clearRollTimer();
+  if (!rollCounted) { incrementPracticeCount(s.id); rollCounted = true; }
+  pinnedPick = s;
+  closeModal();
+  goToToday();
+}
 function editFromRandomModal(){ const id = currentSong().id; closeModal(); openEditSong(id); }
 function skipToNormal(){ pinnedPick = null; closeModal(); goToToday(); }
 function clearPin(){ pinnedPick = null; render(); }
@@ -815,23 +871,29 @@ function sortFullList(col){
 }
 function renderFullList(){
   const { col, dir } = listSort;
-  const val = s => (s[col] || "").toString();
   const q = fullListQuery.trim().toLowerCase();
   const filtered = songs.filter(s => !q || s.name.toLowerCase().includes(q) || s.chord.toLowerCase().includes(q));
-  const sorted = filtered.slice().sort((a,b) => val(a).localeCompare(val(b), "vi") * dir);
+  const sorted = filtered.slice().sort((a, b) => {
+    if (col === "practiceCount") {
+      return ((practiceCounts[a.id] || 0) - (practiceCounts[b.id] || 0)) * dir;
+    }
+    const val = s => (s[col] || "").toString();
+    return val(a).localeCompare(val(b), "vi") * dir;
+  });
 
-  ["name","chord","gender"].forEach(c => {
+  ["name","chord","gender","practiceCount"].forEach(c => {
     const arrow = document.getElementById("arrow-" + c);
     arrow.textContent = c === col ? (dir === 1 ? "▲" : "▼") : "";
   });
 
   document.getElementById("fullListBody").innerHTML = sorted.length === 0
-    ? `<tr><td colspan="3" style="text-align:center; color:#9a927f; padding:16px;">No songs match your search.</td></tr>`
+    ? `<tr><td colspan="4" style="text-align:center; color:#9a927f; padding:16px;">No songs match your search.</td></tr>`
     : sorted.map(s => `
     <tr onclick="closeFullList(); openSongInfo('${s.id}')">
       <td>${esc(s.name)}</td>
       <td class="chord">${esc(s.chord)}</td>
       <td class="gender-cell">${s.gender === "male" ? `<span class="gender-pill male">&#9794;</span>` : s.gender === "female" ? `<span class="gender-pill female">&#9792;</span>` : "—"}</td>
+      <td style="text-align:center;">${practiceCounts[s.id] || 0}</td>
     </tr>`).join("");
 
   // Build A–Z jump strip (based on current sort order, using each song's name)
@@ -1002,6 +1064,7 @@ function markPracticedNow(month, s){
     monthlyPlayed[month].push(s.id);
     saveMonthly();
   }
+  incrementPracticeCount(s.id);
 }
 function nextMonthPractice(){
   clearPracticeTimer();
@@ -1055,6 +1118,8 @@ function openSongInfo(id, monthContext){
   document.getElementById("infoBadge").innerHTML = badge(s.chord) + genderMark(s.gender);
   document.getElementById("infoSong").textContent = s.name;
   document.getElementById("infoMeta").textContent = "Day: " + s.day;
+  const infoN = practiceCounts[s.id] || 0;
+  document.getElementById("infoPracticeCount").textContent = `🎯 Practiced ${infoN} time${infoN === 1 ? "" : "s"} so far`;
   document.getElementById("songInfoOverlay").classList.remove("hidden");
 
   const prevBtn = document.getElementById("infoPrevBtn");
@@ -1089,6 +1154,8 @@ function openSongInfo(id, monthContext){
     if (infoSecondsLeft <= 0) {
       clearInfoTimer();
       markPracticedNow(infoMonthContext, s);
+      const refreshedN = practiceCounts[s.id] || 0;
+      document.getElementById("infoPracticeCount").textContent = `🎯 Practiced ${refreshedN} time${refreshedN === 1 ? "" : "s"} so far`;
       countdownEl.textContent = "✅ Practiced!";
       countdownEl.className = "practice-countdown done";
     } else {
@@ -1289,8 +1356,8 @@ if ("serviceWorker" in navigator) {
   const dataRef = doc(db, "guitarSongsBoard", "data");
 
   const cloud = {
-    save: (songs, playCounts, monthlyLists, monthlyPlayed) => {
-      setDoc(dataRef, { songs, playCounts, monthlyLists, monthlyPlayed, updatedAt: Date.now() }).catch((e) => {
+    save: (songs, playCounts, monthlyLists, monthlyPlayed, practiceCounts) => {
+      setDoc(dataRef, { songs, playCounts, monthlyLists, monthlyPlayed, practiceCounts, updatedAt: Date.now() }).catch((e) => {
         console.warn("Cloud save failed (offline?)", e);
       });
     },
