@@ -381,11 +381,13 @@
   </div>
 </div>
 
-<div id="monthListOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeMonthList()">
+<div id="monthListOverlay" class="modal-overlay hidden" onclick="if(event.target===this) exitMonthList()">
   <div class="modal-card list-card">
     <div class="modal-top-row">
+      <button class="arrow-btn" onclick="shiftMonth(-1)">&laquo; Prev</button>
       <div class="modal-eyebrow" style="margin-bottom:0;" id="monthListTitle">Month</div>
-      <button class="arrow-btn" onclick="closeMonthList()">&times; Close</button>
+      <button class="arrow-btn" onclick="shiftMonth(1)">Next &raquo;</button>
+      <button class="arrow-btn" onclick="exitMonthList()">&times;</button>
     </div>
     <button class="chip add-song" style="margin-bottom:8px;" onclick="startMonthPractice()">&#9654; Start Practice</button>
     <div class="list-table-wrap" style="margin-top:0;">
@@ -407,14 +409,16 @@
 <div id="monthPracticeOverlay" class="modal-overlay hidden" onclick="if(event.target===this) closeMonthPractice()">
   <div class="modal-card">
     <div class="modal-top-row">
+      <button class="arrow-btn" id="practicePrevBtn" onclick="prevMonthPractice()">&laquo;&laquo; PREV</button>
       <div class="modal-eyebrow" style="margin-bottom:0;" id="practiceEyebrow">Practice</div>
-      <button class="arrow-btn" onclick="closeMonthPractice()">&times;</button>
+      <button class="arrow-btn" id="practiceNextArrow" onclick="nextMonthPractice()">NEXT &raquo;&raquo;</button>
     </div>
     <div class="modal-badge-wrap" id="practiceBadge"></div>
     <div class="modal-song" id="practiceSong"></div>
     <div class="modal-meta" id="practiceMeta"></div>
     <div class="modal-buttons" id="practiceButtons">
       <button class="modal-btn primary" onclick="nextMonthPractice()">⏭ Next song</button>
+      <button class="modal-btn secondary" onclick="editFromMonthPractice()">✏️ Edit this song</button>
       <button class="modal-btn ghost" onclick="closeMonthPractice()">Stop practicing</button>
     </div>
   </div>
@@ -694,7 +698,7 @@ function render(){
       shown += count;
       const bodyHTML = `<div class="line"><div class="line-songs">${cells || `<div class="empty">—</div>`}</div></div>`;
       const sub = mixGroups[i].length + " songs";
-      return `<div class="day-card">
+      return `<div class="day-card" id="mix-card-${i}">
         <div class="day-head ${label === "Mix Fun" ? "fun" : ""}">
           <div class="day-name">${label}</div>
           <div class="day-sub">${sub}</div>
@@ -884,6 +888,11 @@ function openMonthList(month){
   renderMonthListBody();
   document.getElementById("monthListOverlay").classList.remove("hidden");
 }
+function shiftMonth(delta){
+  const idx = MONTHS.indexOf(currentMonth);
+  const newIdx = (idx + delta + 12) % 12;
+  openMonthList(MONTHS[newIdx]);
+}
 function renderMonthListBody(){
   const list = monthlyLists[currentMonth] || [];
   const played = new Set(monthlyPlayed[currentMonth] || []);
@@ -901,6 +910,10 @@ function renderMonthListBody(){
 }
 function closeMonthList(){
   document.getElementById("monthListOverlay").classList.add("hidden");
+}
+function exitMonthList(){
+  closeMonthList();
+  exitToMixToday();
 }
 
 // ---------- Monthly practice walkthrough ----------
@@ -923,10 +936,13 @@ function openMonthPracticeAt(i){
   const list = monthlyLists[currentMonth] || [];
   if (i >= list.length) {
     document.getElementById("practiceEyebrow").textContent = currentMonth + " Practice — Done!";
+    document.getElementById("practicePrevBtn").style.visibility = "visible";
+    document.getElementById("practiceNextArrow").style.visibility = "hidden";
     document.getElementById("practiceBadge").innerHTML = "";
     document.getElementById("practiceSong").textContent = "🎉 You've gone through the whole list!";
     document.getElementById("practiceMeta").textContent = "";
     document.getElementById("practiceButtons").innerHTML = `<button class="modal-btn ghost" onclick="closeMonthPractice()">Close</button>`;
+    practiceIndex = list.length;
     return;
   }
   practiceIndex = i;
@@ -934,11 +950,14 @@ function openMonthPracticeAt(i){
   const s = currentPracticeSong();
   if (!s) { nextMonthPractice(); return; }
   document.getElementById("practiceEyebrow").textContent = `${currentMonth} Practice — ${i + 1}/${list.length}`;
+  document.getElementById("practicePrevBtn").style.visibility = i <= 0 ? "hidden" : "visible";
+  document.getElementById("practiceNextArrow").style.visibility = "visible";
   document.getElementById("practiceBadge").innerHTML = badge(s.chord) + genderMark(s.gender);
   document.getElementById("practiceSong").textContent = s.name;
   document.getElementById("practiceMeta").textContent = "Day: " + s.day;
   document.getElementById("practiceButtons").innerHTML = `
     <button class="modal-btn primary" onclick="nextMonthPractice()">⏭ Next song</button>
+    <button class="modal-btn secondary" onclick="editFromMonthPractice()">✏️ Edit this song</button>
     <button class="modal-btn ghost" onclick="closeMonthPractice()">Stop practicing</button>`;
 }
 function markCurrentIfStayed(){
@@ -957,10 +976,35 @@ function nextMonthPractice(){
   markCurrentIfStayed();
   openMonthPracticeAt(practiceIndex + 1);
 }
+function prevMonthPractice(){
+  if (practiceIndex <= 0) return;
+  markCurrentIfStayed();
+  openMonthPracticeAt(practiceIndex - 1);
+}
+function editFromMonthPractice(){
+  const s = currentPracticeSong();
+  if (!s) return;
+  markCurrentIfStayed();
+  document.getElementById("monthPracticeOverlay").classList.add("hidden");
+  openEditSong(s.id);
+}
 function closeMonthPractice(){
   const list = monthlyLists[currentMonth] || [];
   if (practiceIndex < list.length) markCurrentIfStayed();
   document.getElementById("monthPracticeOverlay").classList.add("hidden");
+  exitToMixToday();
+}
+
+// ---------- Exit monthly feature: switch board to Mix mode, jump to today ----------
+function exitToMixToday(){
+  mixItUp();
+  const weekdayMap = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const todayLabel = weekdayMap[new Date().getDay()];
+  const idx = DAYS.indexOf(todayLabel);
+  setTimeout(() => {
+    const el = document.getElementById("mix-card-" + idx);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 60);
 }
 
 // ---------- Song info (read-only, no password) ----------
@@ -1114,7 +1158,7 @@ document.addEventListener("keydown", (e) => {
   if (modal && !modal.classList.contains("hidden")) closeModal();
   if (fullList && !fullList.classList.contains("hidden")) closeFullList();
   if (songInfo && !songInfo.classList.contains("hidden")) closeSongInfo();
-  if (monthList && !monthList.classList.contains("hidden")) closeMonthList();
+  if (monthList && !monthList.classList.contains("hidden")) exitMonthList();
   if (monthPractice && !monthPractice.classList.contains("hidden")) closeMonthPractice();
 });
 
