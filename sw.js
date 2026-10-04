@@ -1,4 +1,4 @@
-const CACHE_NAME = "guitar-songs-board-v20";
+const CACHE_NAME = "guitar-songs-board-v21";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (event) => {
