@@ -1085,11 +1085,16 @@ function openSongInfo(id, monthContext){
 function closeSongInfo(){
   clearInfoTimer();
   document.getElementById("songInfoOverlay").classList.add("hidden");
+  if (infoMonthContext) {
+    infoMonthContext = null;
+    exitToMixToday();
+  }
 }
 function editFromInfo(){
   const id = infoSongId;
   clearInfoTimer();
-  closeSongInfo();
+  infoMonthContext = null;
+  document.getElementById("songInfoOverlay").classList.add("hidden");
   if (id) openEditSong(id);
 }
 
