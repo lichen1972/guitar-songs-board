@@ -48,6 +48,7 @@
   .chip.pair.on.p-FDm { border-color:#8c1f42; background:#d13563; color:#ffffff; }
   .chip.add-song { border-color: #3a7d44; background: #3a7d44; color: #fff; font-weight: 700; justify-content: center; }
   #btn-tb, #btn-mix { justify-content: center; text-align: center; }
+  .box.box-plain { background: transparent; border: none; box-shadow: none; padding: 0; }
   .chip.glass-red {
     position: relative; overflow: hidden; justify-content: center; text-align: center;
     padding: 10px 12px; margin-bottom: 0; border-radius: 999px;
@@ -319,7 +320,7 @@
     <button class="chip" id="btn-tb" onclick="setLayout('tb')"><span>Daily list</span></button>
     <button class="chip" id="btn-mix" onclick="mixItUp()"><span>🔀 Mix 'em up</span></button>
   </div>
-  <div class="box">
+  <div class="box box-plain">
     <button class="chip glass-red" onclick="openRandomModal()"><span>🎲 Roll the dice</span></button>
   </div>
   <div class="box">
