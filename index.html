@@ -234,6 +234,11 @@
   .list-table td.chord { font-weight: 800; }
   .played-row td { opacity: .45; }
   .played-tag { font-size: 10px; font-weight: 800; color: #3a7d44; }
+  .practice-countdown {
+    font-size: 15px; font-weight: 900; color: #b3541e; margin-bottom: 14px;
+    letter-spacing: .03em;
+  }
+  .practice-countdown.done { color: #3a7d44; }
   .list-table td.gender-cell { text-align: center; }
   .gender-pill {
     display: inline-block; font-size: 13px; font-weight: 900; color: #fff;
@@ -416,6 +421,7 @@
     <div class="modal-badge-wrap" id="practiceBadge"></div>
     <div class="modal-song" id="practiceSong"></div>
     <div class="modal-meta" id="practiceMeta"></div>
+    <div id="practiceCountdown" class="practice-countdown"></div>
     <div class="modal-buttons" id="practiceButtons">
       <button class="modal-btn primary" onclick="nextMonthPractice()">⏭ Next song</button>
       <button class="modal-btn secondary" onclick="editFromMonthPractice()">✏️ Edit this song</button>
@@ -918,8 +924,9 @@ function exitMonthList(){
 
 // ---------- Monthly practice walkthrough ----------
 let practiceIndex = 0;
-let practiceStartTime = 0;
-const PRACTICE_PLAYED_MS = 15000;
+let practiceTimerId = null;
+let practiceSecondsLeft = 15;
+const PRACTICE_COUNTDOWN_SECONDS = 15;
 
 function startMonthPractice(){
   closeMonthList();
@@ -932,7 +939,11 @@ function currentPracticeSong(){
   const id = list[practiceIndex];
   return songs.find(s => s.id === id);
 }
+function clearPracticeTimer(){
+  if (practiceTimerId) { clearInterval(practiceTimerId); practiceTimerId = null; }
+}
 function openMonthPracticeAt(i){
+  clearPracticeTimer();
   const list = monthlyLists[currentMonth] || [];
   if (i >= list.length) {
     document.getElementById("practiceEyebrow").textContent = currentMonth + " Practice — Done!";
@@ -941,12 +952,12 @@ function openMonthPracticeAt(i){
     document.getElementById("practiceBadge").innerHTML = "";
     document.getElementById("practiceSong").textContent = "🎉 You've gone through the whole list!";
     document.getElementById("practiceMeta").textContent = "";
+    document.getElementById("practiceCountdown").textContent = "";
     document.getElementById("practiceButtons").innerHTML = `<button class="modal-btn ghost" onclick="closeMonthPractice()">Close</button>`;
     practiceIndex = list.length;
     return;
   }
   practiceIndex = i;
-  practiceStartTime = Date.now();
   const s = currentPracticeSong();
   if (!s) { nextMonthPractice(); return; }
   document.getElementById("practiceEyebrow").textContent = `${currentMonth} Practice — ${i + 1}/${list.length}`;
@@ -959,38 +970,54 @@ function openMonthPracticeAt(i){
     <button class="modal-btn primary" onclick="nextMonthPractice()">⏭ Next song</button>
     <button class="modal-btn secondary" onclick="editFromMonthPractice()">✏️ Edit this song</button>
     <button class="modal-btn ghost" onclick="closeMonthPractice()">Stop practicing</button>`;
-}
-function markCurrentIfStayed(){
-  const s = currentPracticeSong();
-  if (!s) return;
-  const elapsed = Date.now() - practiceStartTime;
-  if (elapsed >= PRACTICE_PLAYED_MS) {
-    if (!monthlyPlayed[currentMonth]) monthlyPlayed[currentMonth] = [];
-    if (!monthlyPlayed[currentMonth].includes(s.id)) {
-      monthlyPlayed[currentMonth].push(s.id);
-      saveMonthly();
+
+  const alreadyPlayed = (monthlyPlayed[currentMonth] || []).includes(s.id);
+  const countdownEl = document.getElementById("practiceCountdown");
+  if (alreadyPlayed) {
+    countdownEl.textContent = "✓ Already practiced";
+    countdownEl.className = "practice-countdown done";
+    return;
+  }
+  practiceSecondsLeft = PRACTICE_COUNTDOWN_SECONDS;
+  countdownEl.className = "practice-countdown";
+  countdownEl.textContent = `⏱ ${practiceSecondsLeft}s to mark as practiced`;
+  practiceTimerId = setInterval(() => {
+    practiceSecondsLeft--;
+    if (practiceSecondsLeft <= 0) {
+      clearPracticeTimer();
+      markPracticedNow(s);
+      countdownEl.textContent = "✅ Practiced!";
+      countdownEl.className = "practice-countdown done";
+    } else {
+      countdownEl.textContent = `⏱ ${practiceSecondsLeft}s to mark as practiced`;
     }
+  }, 1000);
+}
+function markPracticedNow(s){
+  if (!monthlyPlayed[currentMonth]) monthlyPlayed[currentMonth] = [];
+  if (!monthlyPlayed[currentMonth].includes(s.id)) {
+    monthlyPlayed[currentMonth].push(s.id);
+    saveMonthly();
   }
 }
 function nextMonthPractice(){
-  markCurrentIfStayed();
+  clearPracticeTimer();
   openMonthPracticeAt(practiceIndex + 1);
 }
 function prevMonthPractice(){
   if (practiceIndex <= 0) return;
-  markCurrentIfStayed();
+  clearPracticeTimer();
   openMonthPracticeAt(practiceIndex - 1);
 }
 function editFromMonthPractice(){
   const s = currentPracticeSong();
   if (!s) return;
-  markCurrentIfStayed();
+  clearPracticeTimer();
   document.getElementById("monthPracticeOverlay").classList.add("hidden");
   openEditSong(s.id);
 }
 function closeMonthPractice(){
-  const list = monthlyLists[currentMonth] || [];
-  if (practiceIndex < list.length) markCurrentIfStayed();
+  clearPracticeTimer();
   document.getElementById("monthPracticeOverlay").classList.add("hidden");
   exitToMixToday();
 }
