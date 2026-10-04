@@ -1167,13 +1167,8 @@ function openSongInfo(id, monthContext, navList){
   nextBtn.style.visibility = (navIdx === -1 || navIdx >= infoNavList.length - 1) ? "hidden" : "visible";
 
   const countdownEl = document.getElementById("infoCountdown");
-  if (!infoMonthContext) {
-    countdownEl.textContent = "";
-    countdownEl.className = "practice-countdown";
-    return;
-  }
-  const alreadyPlayed = (monthlyPlayed[infoMonthContext] || []).includes(s.id);
-  if (alreadyPlayed) {
+  const ctx = infoMonthContext;
+  if (ctx && (monthlyPlayed[ctx] || []).includes(s.id)) {
     countdownEl.textContent = "✓ Already practiced";
     countdownEl.className = "practice-countdown done";
     return;
@@ -1185,10 +1180,13 @@ function openSongInfo(id, monthContext, navList){
     infoSecondsLeft--;
     if (infoSecondsLeft <= 0) {
       clearInfoTimer();
-      markPracticedNow(infoMonthContext, s);
+      // From a monthly list: mark played for that month (also adds to the lifetime count).
+      // From anywhere else: just add one to the lifetime practice count.
+      if (ctx) markPracticedNow(ctx, s);
+      else incrementPracticeCount(s.id);
       const refreshedN = practiceCounts[s.id] || 0;
       document.getElementById("infoPracticeCount").textContent = `🎯 Practiced ${refreshedN} time${refreshedN === 1 ? "" : "s"} so far`;
-      countdownEl.textContent = "✅ Practiced!";
+      countdownEl.textContent = ctx ? "✅ Practiced!" : "✅ Counted!";
       countdownEl.className = "practice-countdown done";
     } else {
       countdownEl.textContent = `⏱ ${infoSecondsLeft}s to mark as practiced`;
