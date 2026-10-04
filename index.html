@@ -676,7 +676,7 @@ function letItCount(){
   goToToday();
 }
 function editFromRandomModal(){ const id = currentSong().id; closeModal(); openEditSong(id); }
-function skipToNormal(){ pinnedPick = null; closeModal(); goToToday(); }
+function skipToNormal(){ pinnedPick = null; closeModal(); exitToMixToday(); }
 function clearPin(){ pinnedPick = null; render(); }
 
 function setAllDays(on){ activeDays = on ? new Set(DAYS) : new Set(); render(); }
