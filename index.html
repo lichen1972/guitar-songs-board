@@ -1186,10 +1186,8 @@ function nextInfoSong(){
 function closeSongInfo(){
   clearInfoTimer();
   document.getElementById("songInfoOverlay").classList.add("hidden");
-  if (infoMonthContext) {
-    infoMonthContext = null;
-    exitToMixToday();
-  }
+  infoMonthContext = null;
+  exitToMixToday();
 }
 function editFromInfo(){
   const id = infoSongId;
