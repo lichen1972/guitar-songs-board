@@ -168,6 +168,7 @@
     padding: 26px 24px; max-width: 380px; width: 100%; text-align: center;
     box-shadow: 0 12px 34px rgba(0,0,0,.4);
   }
+  #songInfoOverlay .modal-card, #modalOverlay .modal-card, #monthPracticeOverlay .modal-card { touch-action: pan-y pinch-zoom; }
   .modal-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
   .arrow-btn {
     background: transparent; border: none; cursor: pointer; font-family: inherit;
@@ -667,9 +668,15 @@ function pushPick(song){
   savePlays();
   renderModal();
 }
-function openRandomModal(){
+function pickLeastPracticed(){
+  if (!songs.length) return null;
+  const min = Math.min(...songs.map(s => practiceCounts[s.id] || 0));
+  const pool = songs.filter(s => (practiceCounts[s.id] || 0) === min);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function openRandomModal(leastPracticed){
   pickHistory = []; historyIndex = -1;
-  pushPick(pickRandomSong());
+  pushPick(leastPracticed === true ? pickLeastPracticed() : pickRandomSong());
   document.getElementById("modalOverlay").classList.remove("hidden");
 }
 function nextRandomPick(){
@@ -698,7 +705,7 @@ function letItCount(){
   goToToday();
 }
 function editFromRandomModal(){ const id = currentSong().id; closeModal(); openEditSong(id); }
-function skipToNormal(){ pinnedPick = null; closeModal(); exitToMixToday(); }
+function skipToNormal(){ pinnedPick = null; closeModal(); exitToMixToday(); openFullList(); }
 function clearPin(){ pinnedPick = null; render(); }
 
 function setAllDays(on){ activeDays = on ? new Set(DAYS) : new Set(); render(); }
@@ -1208,6 +1215,7 @@ function closeSongInfo(){
   document.getElementById("songInfoOverlay").classList.add("hidden");
   infoMonthContext = null;
   exitToMixToday();
+  openFullList();
 }
 function editFromInfo(){
   const id = infoSongId;
@@ -1339,21 +1347,39 @@ function deleteSongForm(){
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  const modal = document.getElementById("modalOverlay");
-  const fullList = document.getElementById("fullListOverlay");
-  const songInfo = document.getElementById("songInfoOverlay");
-  const monthList = document.getElementById("monthListOverlay");
-  const monthPractice = document.getElementById("monthPracticeOverlay");
-  if (modal && !modal.classList.contains("hidden")) skipToNormal();
-  if (fullList && !fullList.classList.contains("hidden")) closeFullList();
-  if (songInfo && !songInfo.classList.contains("hidden")) closeSongInfo();
-  if (monthList && !monthList.classList.contains("hidden")) exitMonthList();
-  if (monthPractice && !monthPractice.classList.contains("hidden")) closeMonthPractice();
+  const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains("hidden"); };
+  if (open("modalOverlay")) return skipToNormal();
+  if (open("fullListOverlay")) return closeFullList();
+  if (open("songInfoOverlay")) return closeSongInfo();
+  if (open("monthListOverlay")) return exitMonthList();
+  if (open("monthPracticeOverlay")) return closeMonthPractice();
 });
+
+function attachSwipe(selector, onNext, onPrev){
+  const el = document.querySelector(selector);
+  if (!el) return;
+  let x0 = 0, y0 = 0, active = false;
+  el.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) { active = false; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; active = true;
+  }, { passive: true });
+  el.addEventListener("touchend", (e) => {
+    if (!active) return; active = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
+    if (dx < 0) onNext(); else onPrev();
+  }, { passive: true });
+}
+attachSwipe("#songInfoOverlay .modal-card", nextInfoSong, prevInfoSong);
+attachSwipe("#modalOverlay .modal-card", nextRandomPick, lastPick);
+attachSwipe("#monthPracticeOverlay .modal-card",
+  () => { if (document.getElementById("practiceNextArrow").style.visibility !== "hidden") nextMonthPractice(); },
+  prevMonthPractice);
 
 renderMonthChips();
 render();
-openRandomModal();
+if (songs.length) openRandomModal(true);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
