@@ -713,7 +713,7 @@ function letItCount(){
   goToToday();
 }
 function editFromRandomModal(){ const id = currentSong().id; closeModal(); openEditSong(id); }
-function skipToNormal(){ pinnedPick = null; closeModal(); exitToMixToday(); openFullList(); }
+function skipToNormal(){ pinnedPick = null; closeModal(); exitToMixToday(); openFullList(true); }
 function clearPin(){ pinnedPick = null; render(); }
 
 function setAllDays(on){ activeDays = on ? new Set(DAYS) : new Set(); render(); }
@@ -886,8 +886,8 @@ let listSort = { col: "name", dir: 1 };
 let fullListQuery = "";
 let fullListOrder = [];
 
-function openFullList(){
-  listSort = { col: "name", dir: 1 };
+function openFullList(byPractice){
+  listSort = byPractice === true ? { col: "practiceCount", dir: 1 } : { col: "name", dir: 1 };
   fullListQuery = "";
   const input = document.getElementById("fullListSearchInput");
   if (input) input.value = "";
@@ -913,7 +913,8 @@ function renderFullList(){
   const filtered = songs.filter(s => !q || s.name.toLowerCase().includes(q) || s.chord.toLowerCase().includes(q));
   const sorted = filtered.slice().sort((a, b) => {
     if (col === "practiceCount") {
-      return ((practiceCounts[a.id] || 0) - (practiceCounts[b.id] || 0)) * dir;
+      const d = ((practiceCounts[a.id] || 0) - (practiceCounts[b.id] || 0)) * dir;
+      return d !== 0 ? d : a.name.localeCompare(b.name, "vi");
     }
     const val = s => (s[col] || "").toString();
     return val(a).localeCompare(val(b), "vi") * dir;
@@ -1223,7 +1224,7 @@ function closeSongInfo(){
   document.getElementById("songInfoOverlay").classList.add("hidden");
   infoMonthContext = null;
   exitToMixToday();
-  openFullList();
+  openFullList(true);
 }
 function editFromInfo(){
   const id = infoSongId;
