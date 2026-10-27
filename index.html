@@ -668,19 +668,27 @@ function pushPick(song){
   savePlays();
   renderModal();
 }
-function pickLeastPracticed(){
+let leastMode = false;
+function pickLeastPracticed(excludeIds){
   if (!songs.length) return null;
-  const min = Math.min(...songs.map(s => practiceCounts[s.id] || 0));
-  const pool = songs.filter(s => (practiceCounts[s.id] || 0) === min);
+  let base = songs;
+  if (excludeIds && excludeIds.length) {
+    const rest = songs.filter(s => !excludeIds.includes(s.id));
+    if (rest.length) base = rest;
+  }
+  const min = Math.min(...base.map(s => practiceCounts[s.id] || 0));
+  const pool = base.filter(s => (practiceCounts[s.id] || 0) === min);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 function openRandomModal(leastPracticed){
   pickHistory = []; historyIndex = -1;
+  leastMode = leastPracticed === true;
   pushPick(leastPracticed === true ? pickLeastPracticed() : pickRandomSong());
   document.getElementById("modalOverlay").classList.remove("hidden");
 }
 function nextRandomPick(){
   if (historyIndex < pickHistory.length - 1) { historyIndex++; renderModal(); }
+  else if (leastMode) { pushPick(pickLeastPracticed(pickHistory.map(x => x.id))); }
   else { pushPick(pickRandomSong(currentSong().id)); }
 }
 function lastPick(){
